@@ -8,7 +8,6 @@ import win32api
 import win32con
 import win32clipboard
 from io import BytesIO
-
 class TabbedShadowClipboard(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -30,12 +29,12 @@ class TabbedShadowClipboard(ctk.CTk):
         self.nav_frame.pack(side="top", fill="x")
         self.nav_frame.pack_propagate(False)
 
-        self.btn_text_tab = ctk.CTkButton(self.nav_frame, text="📑 CLIPS", width=140, height=40,
+        self.btn_text_tab = ctk.CTkButton(self.nav_frame, text="📑", width=140, height=40,
                                           fg_color="#0e639c", hover_color="#1177bb", font=("Arial", 12, "bold"),
                                           command=lambda: self.show_tab("text"))
         self.btn_text_tab.pack(side="left", padx=(40, 5), pady=10)
 
-        self.btn_img_tab = ctk.CTkButton(self.nav_frame, text="🖼️ PICS", width=140, height=40,
+        self.btn_img_tab = ctk.CTkButton(self.nav_frame, text="🖼️", width=140, height=40,
                                          fg_color="#333", hover_color="#444", font=("Arial", 12, "bold"),
                                          command=lambda: self.show_tab("img"))
         self.btn_img_tab.pack(side="left", padx=(5, 40), pady=10)
@@ -149,33 +148,47 @@ class TabbedShadowClipboard(ctk.CTk):
             lbl.image = img_tk 
             lbl.pack(side="left", pady=8)
 
-        # Action Buttons side-by-side
         btn_frame = ctk.CTkFrame(item_frame, fg_color="transparent")
-        btn_frame.pack(side="right", padx=10)
+        btn_frame.pack(side="right", padx=10, anchor="center")
+
+        emoji_font = ("Segoe UI Emoji", 14)
 
         ctk.CTkButton(btn_frame, text=icon, width=40, height=35, fg_color="#0e639c", 
-                      command=lambda: self.send_to_clipboard(copy_type, content)).pack(side="left", padx=2)
+                      font=emoji_font, command=lambda: self.send_to_clipboard(copy_type, content)).pack(side="left", padx=2)
         
         ctk.CTkButton(btn_frame, text="🗑️", width=40, height=35, fg_color="#444", 
-                      hover_color="#d9534f", command=item_frame.destroy).pack(side="left", padx=2)
+                      hover_color="#d9534f", font=emoji_font, command=item_frame.destroy).pack(side="left", padx=2)
 
     def toggle_window(self):
         if self.is_visible: self.hide_window()
         else: self.show_window()
 
     def show_window(self):
-        try:
-            # Anchor to Bottom Right
-            monitor_info = win32api.GetMonitorInfo(win32api.MonitorFromPoint((0,0), win32con.MONITOR_DEFAULTTOPRIMARY))
-            work_area = monitor_info['Work']
-            x = work_area[2] - self.width - 15
-            y = work_area[3] - self.height - 15
-            self.geometry(f"{self.width}x{self.height}+{x}+{y}")
-            self.deiconify()
-            self.lift()
-            self.focus_force()
-            self.is_visible = True
-        except: pass
+            try:
+                scale = self._get_window_scaling()
+
+                cursor_pos = win32api.GetCursorPos()
+                monitor_info = win32api.GetMonitorInfo(win32api.MonitorFromPoint(cursor_pos, win32con.MONITOR_DEFAULTTONEAREST))
+                work_area = monitor_info['Work']
+
+                wa_width = (work_area[2] - work_area[0]) / scale
+                wa_height = (work_area[3] - work_area[1]) / scale
+
+                dynamic_width = min(self.width, int(wa_width * 0.85))
+                dynamic_height = min(self.height, int(wa_height * 0.85))
+
+                real_width = dynamic_width * scale
+                real_height = dynamic_height * scale
+                x = int(work_area[2] - real_width - 15)
+                y = int(work_area[3] - real_height - 15)
+
+                self.geometry(f"{dynamic_width}x{dynamic_height}+{x}+{y}")
+                self.deiconify()
+                self.lift()
+                self.focus_force()
+                self.is_visible = True
+            except Exception as e:
+                print(f"Erro ao mostrar a janela: {e}")
 
     def hide_window(self):
         self.withdraw()
@@ -188,10 +201,8 @@ class TabbedShadowClipboard(ctk.CTk):
         else:
             for child in self.img_page.winfo_children(): child.destroy()
         
-        # Reset memory
         self.last_content = None
         
-        # Flush Windows Clipboard
         try:
             win32clipboard.OpenClipboard()
             win32clipboard.EmptyClipboard()
